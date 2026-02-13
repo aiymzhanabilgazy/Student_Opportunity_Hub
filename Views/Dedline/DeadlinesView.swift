@@ -1,45 +1,43 @@
 import SwiftUI
 
 struct DeadlinesView: View {
-    
+
     @EnvironmentObject var appState: AppState
     @State private var showAppliedOnly = false
-    
+    @State private var cached: [Opportunity] = []
+
+    private let repo: OpportunitiesRepositoryProtocol = OpportunitiesRepository()
+
     var trackedOpportunities: [Opportunity] {
-        let all = SampleData.opportunities   // временно
-        
-        let filtered = all.filter {
-            appState.isFavorite($0) || appState.isApplied($0)
+        let all = cached + appState.customOpportunities
+
+        let filtered = all.filter { opp in
+            // ✅ Created всегда показываем
+            if appState.customOpportunities.contains(where: { $0.id == opp.id }) {
+                return true
+            }
+            // ✅ Остальные — только saved/applied
+            return appState.isFavorite(opp) || appState.isApplied(opp)
         }
-        
-        return filtered.sorted {
-            $0.daysLeft < $1.daysLeft
-        }
+
+        return filtered.sorted { $0.daysLeft < $1.daysLeft }
     }
 
-    
+
     var filteredOpportunities: [Opportunity] {
-        if showAppliedOnly {
-            return trackedOpportunities.filter {
-                appState.isApplied($0)
-            }
-        } else {
-            return trackedOpportunities
-        }
+        showAppliedOnly ? trackedOpportunities.filter { appState.isApplied($0) } : trackedOpportunities
     }
-    
+
     var body: some View {
         NavigationStack {
             ZStack {
                 Color.appBackground.ignoresSafeArea()
-                
+
                 VStack {
-                    
-                    // 🔥 Toggle filtering
                     Toggle("Show Applied Only", isOn: $showAppliedOnly)
                         .padding()
                         .foregroundColor(.white)
-                    
+
                     if filteredOpportunities.isEmpty {
                         Text("No saved opportunities yet")
                             .foregroundColor(.gray)
@@ -48,7 +46,6 @@ struct DeadlinesView: View {
                         ScrollView {
                             LazyVStack(spacing: 16) {
                                 ForEach(filteredOpportunities) { opportunity in
-                                    
                                     NavigationLink {
                                         DetailsView(opportunity: opportunity)
                                     } label: {
@@ -65,5 +62,11 @@ struct DeadlinesView: View {
             .navigationTitle("My Deadlines")
         }
         .preferredColorScheme(.dark)
+        .task { loadCache() }
+    }
+
+    private func loadCache() {
+        do { cached = try repo.loadCached() }
+        catch { cached = [] }
     }
 }

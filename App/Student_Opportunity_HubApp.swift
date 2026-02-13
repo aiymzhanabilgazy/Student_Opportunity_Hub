@@ -1,6 +1,7 @@
 import SwiftUI
 import FirebaseCore
 import FirebaseAuth
+import FirebaseDatabase
 
 @main
 struct Student_Opportunity_HubApp: App {
